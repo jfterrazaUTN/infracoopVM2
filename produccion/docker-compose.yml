@@ -1,27 +1,48 @@
-version: '3'
+version: '3.6'
 services:
-  influxdb:
-    container_name: influxdb
-    image: influxdb:1.8.10
+  telegraf:
+    image: telegraf
+    container_name: telegraf
+    restart: always
     volumes:
-      - ./influxdb:/var/lib/influxdb
-    ports:
-      - 8086:8086
-    environment:
-      INFLUXDB_DB: homeassistant
-    restart: unless-stopped
-  grafana:
-    container_name: grafana
-    image: grafana/grafana:latest
-    volumes:
-      - ./grafana:/var/lib/grafana 
+    - ./telegraf.conf:/etc/telegraf/telegraf.conf:ro
     depends_on:
       - influxdb
+    links:
+      - influxdb
     ports:
-      - 3000:3000
+    - '8125:8125'
+
+  influxdb:
+    image: influxdb:1.8-alpine
+    container_name: influxdb
+    restart: always
     environment:
-      - GF_AUTH_DISABLE_LOGIN_FORM=true
-      - GF_AUTH_ANONYMOUS_ENABLED=true
-      - GF_AUTH_ANONYMOUS_ORG_ROLE=Admin
-      - GF_SECURITY_ALLOW_EMBEDDING=true
-    restart: unless-stopped
+      - INFLUXDB_DB=influx
+      - INFLUXDB_ADMIN_USER=admin
+      - INFLUXDB_ADMIN_PASSWORD=admin
+    ports:
+      - '8086:8086'
+    volumes:
+      - influxdb_data:/var/lib/influxdb
+
+  grafana:
+    image: grafana/grafana
+    container_name: grafana-server
+    restart: always
+    depends_on:
+      - influxdb
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_INSTALL_PLUGINS=
+    links:
+      - influxdb
+    ports:
+      - '3000:3000'
+    volumes:
+      - grafana_data:/var/lib/grafana
+      
+volumes:
+  grafana_data: {}
+  influxdb_data: {}
